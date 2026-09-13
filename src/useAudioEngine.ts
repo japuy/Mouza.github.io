@@ -222,50 +222,91 @@ export const useAudioEngine = (
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordingStreamRef.current = stream;
 
-      let mime = 'audio/webm';
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mime = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-        mime = 'audio/webm';
-      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        mime = 'audio/mp4';
+      let mime = '';
+      const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm;codecs=pcm',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+      ];
+      for (const m of candidates) {
+        try {
+          if (MediaRecorder.isTypeSupported(m)) { mime = m; break; }
+        } catch {}
       }
+      if (!mime) mime = 'audio/webm';
 
-      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const recorder = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 256000 });
       mediaRecorderRef.current = recorder;
       recordingChunksRef.current = [];
       recordingTrackIdRef.current = trackId;
 
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+
+      recorder.onerror = (e) => {
+        console.error('MediaRecorder error:', e);
       };
 
       recorder.onstop = async () => {
         const liveClipId = recordingClipIdRef.current;
-        const ctx = initAudioContext();
-        const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType });
-        const blobUrl = URL.createObjectURL(blob);
-        const arrayBuffer = await blob.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-        const waveformData = computeWaveformData(audioBuffer);
+        const trackIdFinal = recordingTrackIdRef.current;
+        const startTimeFinal = recordingStartTimeRef.current;
+        const chunks = [...recordingChunksRef.current];
+        const finalMime = recorder.mimeType || mime;
 
-        setClips((prev) => {
-          const rest = liveClipId ? prev.filter((c) => c.id !== liveClipId) : prev;
-          const newClip = createAudioClip(
-            recordingTrackIdRef.current!,
-            recordingStartTimeRef.current,
-            audioBuffer,
-            blobUrl,
-            waveformData
-          );
-          return [...rest, newClip];
-        });
+        try {
+          if (!trackIdFinal) throw new Error('Recording track ID tidak valid');
+          if (chunks.length === 0) throw new Error('Tidak ada data rekaman (coba rekam lebih lama)');
 
-        recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
-        recordingStreamRef.current = null;
-        mediaRecorderRef.current = null;
-        recordingTrackIdRef.current = null;
-        recordingClipIdRef.current = null;
+          const ctx = initAudioContext();
+          const blob = new Blob(chunks, { type: finalMime });
+          const arrayBuffer = await blob.arrayBuffer();
+          if (!arrayBuffer || arrayBuffer.byteLength < 100) throw new Error('Data rekaman terlalu kecil');
+
+          let audioBuffer: AudioBuffer | null = null;
+          try {
+            audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+          } catch (decodeErr) {
+            console.warn('decodeAudioData gagal untuk mime', finalMime, '- coba fallback...', decodeErr);
+            try {
+              audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+            } catch (decodeErr2) {
+              throw new Error('Format rekaman tidak bisa di-decode (coba browser Chrome).');
+            }
+          }
+          if (!audioBuffer || audioBuffer.duration <= 0) throw new Error('Audio buffer kosong');
+
+          const waveformData = computeWaveformData(audioBuffer);
+          const blobUrl = URL.createObjectURL(blob);
+
+          setClips((prev) => {
+            const rest = liveClipId ? prev.filter((c) => c.id !== liveClipId) : prev;
+            const newClip = createAudioClip(
+              trackIdFinal,
+              startTimeFinal,
+              audioBuffer,
+              blobUrl,
+              waveformData
+            );
+            return [...rest, newClip];
+          });
+        } catch (err) {
+          console.error('Finalisasi rekaman GAGAL:', err);
+          alert(`Rekaman gagal diproses: ${(err as Error).message || 'Unknown error'}`);
+          if (liveClipId) {
+            setClips((prev) => prev.filter((c) => c.id !== liveClipId));
+          }
+        } finally {
+          recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+          recordingStreamRef.current = null;
+          mediaRecorderRef.current = null;
+          recordingTrackIdRef.current = null;
+          recordingClipIdRef.current = null;
+          recordingChunksRef.current = [];
+        }
       };
 
       recordingStartTimeRef.current = state.currentTime;
@@ -285,21 +326,47 @@ export const useAudioEngine = (
           color: track?.color || '#ef4444',
         } as AudioClip,
       ]);
-      recorder.start(100);
+      recorder.start(50);
       setState((s) => ({ ...s, isRecording: true }));
 
       if (!state.isPlaying) {
         startPlayback();
       }
     } catch (e) {
-      console.error('Recording failed:', e);
+      console.error('Recording init failed:', e);
       alert('Tidak bisa mengakses mikrofon. Pastikan izin mikrofon diizinkan.');
+      const liveClipId = recordingClipIdRef.current;
+      if (liveClipId) {
+        setClips((prev) => prev.filter((c) => c.id !== liveClipId));
+        recordingClipIdRef.current = null;
+      }
     }
   }, [initAudioContext, setClips, state.currentTime, state.isPlaying, startPlayback, tracks]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+    const liveClipId = recordingClipIdRef.current;
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.requestData();
+        mediaRecorderRef.current.stop();
+      } else if (mediaRecorderRef.current) {
+        console.warn('MediaRecorder sudah inactive — paksa cleanup');
+        mediaRecorderRef.current.dispatchEvent(new Event('stop'));
+      } else {
+        console.warn('stopRecording dipanggil tanpa MediaRecorder aktif — cleanup placeholder');
+        recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+        recordingStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        recordingTrackIdRef.current = null;
+        recordingClipIdRef.current = null;
+        recordingChunksRef.current = [];
+        if (liveClipId) {
+          setClips((prev) => prev.filter((c) => c.id !== liveClipId));
+        }
+      }
+    } catch (err) {
+      console.error('stopRecording error:', err);
+      alert('Gagal menghentikan rekaman: ' + (err as Error).message);
     }
     setState((s) => ({ ...s, isRecording: false }));
     if (state.isPlaying) {
