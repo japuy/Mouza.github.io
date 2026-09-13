@@ -20,11 +20,11 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && node esbuild-fix.js && node build-wrapper.cjs",
-    "build:fast": "node esbuild-fix.js && node build-wrapper.cjs",
+    "build": "tsc --noEmit && node esbuild-fix.cjs && node build-wrapper.cjs",
+    "build:fast": "node esbuild-fix.cjs && node build-wrapper.cjs",
     "preview": "vite preview",
-    "postinstall": "node esbuild-fix.js || true",
-    "vercel-build": "node esbuild-fix.js && node build-wrapper.cjs"
+    "postinstall": "node esbuild-fix.cjs || true",
+    "vercel-build": "node esbuild-fix.cjs && node build-wrapper.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",
