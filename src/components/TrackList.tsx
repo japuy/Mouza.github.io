@@ -34,8 +34,8 @@ export const TrackList: React.FC<Props> = ({
         <span className="text-sm font-semibold text-gray-300">TRACKS</span>
         <button
           onClick={onAddTrack}
-          className="w-7 h-7 rounded bg-studio-bg hover:bg-studio-accent flex items-center justify-center transition-all border border-studio-border hover:border-studio-accent"
-          title="Add Track"
+          className="w-7 h-7 rounded bg-studio-accent hover:bg-studio-accent-hover flex items-center justify-center transition-all text-white shadow-md shadow-purple-500/30"
+          title="+ Tambah Track"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -78,12 +78,14 @@ export const TrackList: React.FC<Props> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDeleteTrack(track.id);
+                    if (confirm(`Hapus track "${track.name}"? Semua clip di track ini akan terhapus.`)) {
+                      onDeleteTrack(track.id);
+                    }
                   }}
-                  className="text-gray-500 hover:text-studio-danger opacity-0 hover:opacity-100 transition-all text-xs shrink-0"
-                  title="Delete track"
+                  className="bg-studio-bg hover:bg-studio-danger text-gray-400 hover:text-white rounded w-6 h-6 flex items-center justify-center shrink-0 transition-all border border-studio-border hover:border-studio-danger"
+                  title="Hapus Track"
                 >
-                  ✕
+                  🗑
                 </button>
               </div>
 

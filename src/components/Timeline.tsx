@@ -213,36 +213,43 @@ export const Timeline: React.FC<Props> = ({
             if (!track) return null;
             const trackIdx = tracks.indexOf(track);
             const isSelected = selection === clip.id;
+            const clipColor = clip.color || track.color;
+            const isRec = !!clip.isRecording;
             return (
               <div
                 key={clip.id}
                 onMouseDown={(e) => handleClipMouseDown(e, clip)}
                 className={`absolute rounded-lg overflow-hidden cursor-grab active:cursor-grabbing transition-shadow ${
                   isSelected ? 'ring-2 ring-white shadow-2xl z-10' : 'shadow-lg hover:shadow-xl'
-                }`}
+                } ${isRec ? 'animate-pulse' : ''}`}
                 style={{
                   left: clip.startTime * pixelsPerSecond,
                   top: trackIdx * trackHeight + 8,
-                  width: Math.max(2, clip.duration * pixelsPerSecond),
+                  width: Math.max(8, clip.duration * pixelsPerSecond),
                   height: trackHeight - 16,
-                  backgroundColor: track.color + '33',
-                  border: `2px solid ${track.color}`,
+                  backgroundColor: clipColor + (isRec ? '66' : '33'),
+                  border: `2px solid ${clipColor}`,
+                  boxShadow: isRec ? `0 0 12px ${clipColor}` : undefined,
                 }}
               >
                 <div
                   className="h-5 px-2 flex items-center justify-between text-[10px] font-bold text-white truncate"
-                  style={{ backgroundColor: track.color }}
+                  style={{ backgroundColor: clipColor }}
                 >
-                  <span className="truncate">{clip.name}</span>
-                  {isSelected && (
+                  <span className="truncate flex items-center gap-1">
+                    {isRec && <span className="w-2 h-2 rounded-full bg-white animate-ping" />}
+                    {clip.name}
+                  </span>
+                  {!isRec && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteClip(clip.id);
+                        if (confirm('Hapus clip ini?')) onDeleteClip(clip.id);
                       }}
-                      className="bg-black/30 hover:bg-black/60 rounded w-4 h-4 flex items-center justify-center shrink-0"
+                      className="bg-black/40 hover:bg-studio-danger rounded w-5 h-5 flex items-center justify-center shrink-0 transition-colors"
+                      title="Hapus clip"
                     >
-                      ✕
+                      🗑
                     </button>
                   )}
                 </div>
@@ -255,23 +262,23 @@ export const Timeline: React.FC<Props> = ({
                           className="waveform-bar rounded-full flex-1"
                           style={{
                             height: `${v * 100}%`,
-                            backgroundColor: track.color,
+                            backgroundColor: clipColor,
                             minWidth: 1,
                           }}
                         />
                       ))}
                     </div>
                   )}
-                  {!clip.waveformData && clip.isRecording && (
+                  {!clip.waveformData && isRec && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex gap-1">
-                        {[...Array(5)].map((_, i) => (
+                        {[...Array(7)].map((_, i) => (
                           <div
                             key={i}
-                            className="w-1 bg-studio-danger rounded-full animate-bounce"
+                            className="w-1 bg-white rounded-full animate-bounce"
                             style={{
-                              height: `${20 + i * 5}px`,
-                              animationDelay: `${i * 0.1}s`,
+                              height: `${14 + i * 4}px`,
+                              animationDelay: `${i * 0.08}s`,
                             }}
                           />
                         ))}
