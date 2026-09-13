@@ -42,7 +42,6 @@ export default defineConfig({
     emptyOutDir: true,
   },
   optimizeDeps: {
-    disabled: false,
     force: true,
     esbuildOptions: {
       target: 'es2020',
