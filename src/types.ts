@@ -9,6 +9,7 @@ export interface AudioClip {
   waveformData?: number[];
   isRecording?: boolean;
   color?: string;
+  liveWaveform?: number[];
 }
 
 export interface Track {

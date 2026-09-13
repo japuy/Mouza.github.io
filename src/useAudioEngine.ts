@@ -22,6 +22,9 @@ export const useAudioEngine = (
   const recordingTrackIdRef = useRef<string | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const recordingClipIdRef = useRef<string | null>(null);
+  const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const micAnalyserRef = useRef<AnalyserNode | null>(null);
+  const liveWaveformRef = useRef<number[]>([]);
 
   const [state, setState] = useState<AudioEngineState>({
     isPlaying: false,
@@ -150,10 +153,42 @@ export const useAudioEngine = (
       if (recordingClipIdRef.current) {
         const recStartTime = recordingStartTimeRef.current;
         const liveDuration = Math.max(0.05, currentTime - recStartTime);
+
+        let rmsLevel = 0;
+        if (micAnalyserRef.current) {
+          const arr = new Uint8Array(micAnalyserRef.current.frequencyBinCount);
+          micAnalyserRef.current.getByteTimeDomainData(arr);
+          let sum = 0;
+          for (let i = 0; i < arr.length; i++) {
+            const v = (arr[i] - 128) / 128;
+            sum += v * v;
+          }
+          rmsLevel = Math.sqrt(sum / arr.length);
+        }
+        liveWaveformRef.current.push(rmsLevel);
+
+        let liveWaveformOut = liveWaveformRef.current;
+        const MAX_POINTS = 120;
+        if (liveWaveformOut.length > MAX_POINTS) {
+          const step = liveWaveformOut.length / MAX_POINTS;
+          const resampled: number[] = [];
+          for (let i = 0; i < MAX_POINTS; i++) {
+            const start = Math.floor(i * step);
+            const end = Math.max(start + 1, Math.floor((i + 1) * step));
+            let max = 0;
+            for (let j = start; j < end && j < liveWaveformOut.length; j++) {
+              if (liveWaveformOut[j] > max) max = liveWaveformOut[j];
+            }
+            resampled.push(max);
+          }
+          liveWaveformOut = resampled;
+        }
+
+        const liveClipId = recordingClipIdRef.current;
         setClips((prev) =>
           prev.map((c) =>
-            c.id === recordingClipIdRef.current
-              ? { ...c, duration: liveDuration }
+            c.id === liveClipId
+              ? { ...c, duration: liveDuration, liveWaveform: liveWaveformOut }
               : c
           )
         );
@@ -221,6 +256,18 @@ export const useAudioEngine = (
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recordingStreamRef.current = stream;
+      liveWaveformRef.current = [];
+
+      const ctx2 = initAudioContext();
+      if (micSourceRef.current) {
+        try { micSourceRef.current.disconnect(); } catch {}
+        micSourceRef.current = null;
+      }
+      micSourceRef.current = ctx2.createMediaStreamSource(stream);
+      const an = ctx2.createAnalyser();
+      an.fftSize = 512;
+      micAnalyserRef.current = an;
+      micSourceRef.current.connect(an);
 
       let mime = '';
       const candidates = [
@@ -306,6 +353,12 @@ export const useAudioEngine = (
           recordingTrackIdRef.current = null;
           recordingClipIdRef.current = null;
           recordingChunksRef.current = [];
+          liveWaveformRef.current = [];
+          if (micSourceRef.current) {
+            try { micSourceRef.current.disconnect(); } catch {}
+            micSourceRef.current = null;
+          }
+          micAnalyserRef.current = null;
         }
       };
 
@@ -340,6 +393,17 @@ export const useAudioEngine = (
         setClips((prev) => prev.filter((c) => c.id !== liveClipId));
         recordingClipIdRef.current = null;
       }
+      recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
+      recordingStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      recordingTrackIdRef.current = null;
+      recordingChunksRef.current = [];
+      liveWaveformRef.current = [];
+      if (micSourceRef.current) {
+        try { micSourceRef.current.disconnect(); } catch {}
+        micSourceRef.current = null;
+      }
+      micAnalyserRef.current = null;
     }
   }, [initAudioContext, setClips, state.currentTime, state.isPlaying, startPlayback, tracks]);
 
@@ -360,6 +424,12 @@ export const useAudioEngine = (
         recordingTrackIdRef.current = null;
         recordingClipIdRef.current = null;
         recordingChunksRef.current = [];
+        liveWaveformRef.current = [];
+        if (micSourceRef.current) {
+          try { micSourceRef.current.disconnect(); } catch {}
+          micSourceRef.current = null;
+        }
+        micAnalyserRef.current = null;
         if (liveClipId) {
           setClips((prev) => prev.filter((c) => c.id !== liveClipId));
         }
