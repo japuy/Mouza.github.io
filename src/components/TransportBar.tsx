@@ -1,6 +1,6 @@
 import React from 'react';
-import { formatTime, formatBars } from './utils';
-import { AudioEngineState } from './types';
+import { formatTime, formatBars } from '../utils';
+import { AudioEngineState } from '../types';
 
 interface Props {
   state: AudioEngineState;
