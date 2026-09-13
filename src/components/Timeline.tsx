@@ -254,7 +254,7 @@ export const Timeline: React.FC<Props> = ({
                   )}
                 </div>
                 <div className="flex-1 relative bg-black/20" style={{ height: trackHeight - 16 - 20 }}>
-                  {clip.waveformData && (
+                  {clip.waveformData && !isRec && (
                     <div className="absolute inset-0 flex items-center gap-[1px] px-[2px]">
                       {clip.waveformData.map((v, i) => (
                         <div
@@ -269,7 +269,24 @@ export const Timeline: React.FC<Props> = ({
                       ))}
                     </div>
                   )}
-                  {!clip.waveformData && isRec && (
+                  {isRec && clip.liveWaveform && clip.liveWaveform.length > 0 && (
+                    <div className="absolute inset-0 flex items-center gap-[1px] px-[2px]">
+                      {clip.liveWaveform.map((v, i) => (
+                        <div
+                          key={i}
+                          className="waveform-bar rounded-full flex-1"
+                          style={{
+                            height: `${Math.max(5, Math.min(100, (v * 160 + 5) * 1))}%`,
+                            backgroundColor: '#ffffff',
+                            opacity: 0.9,
+                            minWidth: 1,
+                            boxShadow: v > 0.3 ? `0 0 2px ${clipColor}` : undefined,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {isRec && (!clip.liveWaveform || clip.liveWaveform.length === 0) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="flex gap-1">
                         {[...Array(7)].map((_, i) => (
