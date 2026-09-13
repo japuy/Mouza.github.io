@@ -83,18 +83,17 @@ const DeviceSelect: React.FC<{
   const current = options.find((o) => o.deviceId === value) || options[0];
 
   return (
-    <div className="flex items-center gap-1 shrink-0" title={title}>
-      <div className="text-gray-400 shrink-0" aria-hidden>{icon}</div>
+    <div className="flex items-center gap-1.5 shrink-0" title={title}>
+      <div className="text-studio-accent font-bold text-[11px] uppercase tracking-wide whitespace-nowrap shrink-0 flex items-center gap-1">
+        <div className="text-gray-300">{icon}</div>
+        {label}
+      </div>
       <div className="relative">
-        <label className="absolute left-2 top-[3px] text-[9px] leading-none text-studio-accent font-bold tracking-wide uppercase pointer-events-none">
-          {label}
-        </label>
         <select
           disabled={disabled}
           value={current.deviceId}
           onChange={(e) => onChange(e.target.value)}
-          className={`${width} bg-studio-bg border border-studio-border rounded pl-2 pr-6 pt-2.5 pb-1 text-[11px] text-gray-200 focus:outline-none focus:border-studio-accent truncate appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
-          style={{ minHeight: 30 }}
+          className={`${width} bg-studio-bg border border-studio-border rounded pl-2 pr-6 py-1.5 text-[11px] text-gray-200 focus:outline-none focus:border-studio-accent truncate appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0`}
         >
           {options.map((d) => (
             <option key={d.deviceId} value={d.deviceId} className="text-xs truncate">
