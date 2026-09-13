@@ -30,6 +30,9 @@ export const TrackList: React.FC<Props> = ({
   trackHeight,
   onExportTrack,
 }) => {
+  const isCompact = trackHeight < 80;
+  const isTiny = trackHeight < 62;
+
   return (
     <div className="w-64 bg-studio-panel border-r border-studio-border flex flex-col shrink-0">
       <div className="h-12 border-b border-studio-border flex items-center px-3 justify-between shrink-0">
@@ -57,35 +60,48 @@ export const TrackList: React.FC<Props> = ({
             <div
               key={track.id}
               onClick={() => onSelectTrack(track.id)}
-              className={`relative px-3 py-2 border-b border-studio-border cursor-pointer transition-all ${
+              className={`relative px-2.5 overflow-hidden flex flex-col cursor-pointer transition-all ${
                 isSelected ? 'bg-studio-accent/10' : 'hover:bg-studio-bg/50'
-              } ${isArmed ? 'border-l-4' : ''}`}
+              } ${isArmed ? 'border-l-4 border-b border-studio-border' : 'border-b border-studio-border'}`}
               style={{
-                minHeight: trackHeight,
+                height: trackHeight,
                 borderLeftColor: isArmed ? track.color : undefined,
+                paddingTop: isTiny ? 4 : 6,
+                paddingBottom: isTiny ? 4 : 6,
+                gap: isCompact ? 2 : 4,
               }}
             >
-              <div className="flex items-start gap-2 mb-2">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <div
-                  className="w-3 h-3 rounded-full mt-1 shrink-0"
-                  style={{ backgroundColor: track.color }}
+                  className="rounded-full mt-0.5 shrink-0"
+                  style={{
+                    backgroundColor: track.color,
+                    width: isTiny ? 8 : 10,
+                    height: isTiny ? 8 : 10,
+                  }}
                 />
                 <input
                   type="text"
                   value={track.name}
                   onChange={(e) => onUpdateTrack(track.id, { name: e.target.value })}
                   onClick={(e) => e.stopPropagation()}
-                  className="bg-transparent text-sm font-medium focus:outline-none w-full"
+                  className="bg-transparent focus:outline-none w-full truncate"
+                  style={{
+                    fontSize: isTiny ? 11 : isCompact ? 12 : 13,
+                    fontWeight: 500,
+                    lineHeight: 1.2,
+                  }}
                 />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     onExportTrack(track.id);
                   }}
-                  className="bg-studio-bg hover:bg-emerald-600 text-emerald-400 hover:text-white rounded w-6 h-6 flex items-center justify-center shrink-0 transition-all border border-studio-border hover:border-emerald-500"
+                  className="bg-studio-bg hover:bg-emerald-600 text-emerald-400 hover:text-white rounded flex items-center justify-center shrink-0 transition-all border border-studio-border hover:border-emerald-500"
+                  style={{ width: isCompact ? 20 : 22, height: isCompact ? 20 : 22 }}
                   title={`💾 Save / Export track "${track.name}" ke WAV`}
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <svg width={isCompact ? 10 : 11} height={isCompact ? 10 : 11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="7,10 12,15 17,10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
@@ -98,84 +114,85 @@ export const TrackList: React.FC<Props> = ({
                       onDeleteTrack(track.id);
                     }
                   }}
-                  className="bg-studio-bg hover:bg-studio-danger text-gray-400 hover:text-white rounded w-6 h-6 flex items-center justify-center shrink-0 transition-all border border-studio-border hover:border-studio-danger"
+                  className="bg-studio-bg hover:bg-studio-danger text-gray-400 hover:text-white rounded flex items-center justify-center shrink-0 transition-all border border-studio-border hover:border-studio-danger"
+                  style={{ width: isCompact ? 20 : 22, height: isCompact ? 20 : 22, fontSize: isCompact ? 10 : 11 }}
                   title="Hapus Track"
                 >
                   🗑
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 mb-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateTrack(track.id, { muted: !track.muted });
-                  }}
-                  className={`w-7 h-7 rounded text-xs font-bold transition-all ${
-                    track.muted
-                      ? 'bg-studio-danger text-white'
-                      : 'bg-studio-bg text-gray-400 hover:text-white border border-studio-border'
-                  }`}
-                  title="Mute"
-                >
-                  M
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUpdateTrack(track.id, { solo: !track.solo });
-                  }}
-                  className={`w-7 h-7 rounded text-xs font-bold transition-all ${
-                    track.solo
-                      ? 'bg-yellow-500 text-black'
-                      : 'bg-studio-bg text-gray-400 hover:text-white border border-studio-border'
-                  }`}
-                  title="Solo"
-                >
-                  S
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onArmTrack(track.id);
-                  }}
-                  className={`w-7 h-7 rounded text-xs font-bold transition-all ${
-                    isArmed
-                      ? isThisRecording
-                        ? 'bg-studio-danger text-white animate-pulse'
-                        : 'bg-studio-danger/80 text-white'
-                      : 'bg-studio-bg text-gray-400 hover:text-studio-danger border border-studio-border'
-                  }`}
-                  title="Arm for Recording"
-                >
-                  R
-                </button>
-                <div className="w-12 h-3 bg-black/40 rounded overflow-hidden ml-auto border border-studio-border">
-                  <div
-                    className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all"
-                    style={{ width: `${Math.min(100, meter * 400)}%` }}
-                  />
-                </div>
-              </div>
+              {!isTiny && (
+                <>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {(['M', 'S', 'R'] as const).map((k) => {
+                      const key = k.toLowerCase() as 'muted' | 'solo' | 'armed';
+                      const active = key === 'muted' ? track.muted : key === 'solo' ? track.solo : isArmed && k === 'R';
+                      const extra = k === 'R' && isThisRecording ? 'animate-pulse' : '';
+                      const activeBg =
+                        k === 'M' ? 'bg-studio-danger text-white' :
+                        k === 'S' ? 'bg-yellow-500 text-black' :
+                        'bg-studio-danger text-white';
+                      const handler = (e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        if (k === 'M') onUpdateTrack(track.id, { muted: !track.muted });
+                        else if (k === 'S') onUpdateTrack(track.id, { solo: !track.solo });
+                        else onArmTrack(track.id);
+                      };
+                      return (
+                        <button
+                          key={k}
+                          onClick={handler}
+                          className={`rounded font-bold transition-all shrink-0 ${
+                            active
+                              ? `${activeBg} ${extra}`
+                              : 'bg-studio-bg text-gray-400 hover:text-white border border-studio-border'
+                          }`}
+                          style={{
+                            width: isCompact ? 22 : 26,
+                            height: isCompact ? 20 : 24,
+                            fontSize: isCompact ? 10 : 11,
+                          }}
+                          title={k === 'M' ? 'Mute' : k === 'S' ? 'Solo' : 'Arm for Recording'}
+                        >
+                          {k}
+                        </button>
+                      );
+                    })}
+                    <div
+                      className="ml-auto rounded overflow-hidden border border-studio-border bg-black/40 shrink-0"
+                      style={{ width: isCompact ? 48 : 60, height: isCompact ? 10 : 12 }}
+                    >
+                      <div
+                        className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all"
+                        style={{ width: `${Math.min(100, meter * 400)}%` }}
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-gray-500 shrink-0">
-                  <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" />
-                </svg>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={track.volume}
-                  onChange={(e) => onUpdateTrack(track.id, { volume: Number(e.target.value) })}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex-1"
-                />
-                <span className="text-xs text-gray-500 w-8 text-right shrink-0 font-mono">
-                  {Math.round(track.volume * 100)}
-                </span>
-              </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <svg width={isCompact ? 10 : 12} height={isCompact ? 10 : 12} viewBox="0 0 24 24" fill="currentColor" className="text-gray-500 shrink-0">
+                      <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" />
+                    </svg>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={track.volume}
+                      onChange={(e) => onUpdateTrack(track.id, { volume: Number(e.target.value) })}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex-1"
+                    />
+                    <span
+                      className="font-mono text-right shrink-0 text-gray-500 tabular-nums"
+                      style={{ fontSize: isCompact ? 9 : 10, width: isCompact ? 22 : 26 }}
+                    >
+                      {Math.round(track.volume * 100)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
