@@ -8,6 +8,7 @@ export interface AudioClip {
   blobUrl?: string;
   waveformData?: number[];
   isRecording?: boolean;
+  color?: string;
 }
 
 export interface Track {

@@ -21,6 +21,7 @@ export const useAudioEngine = (
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingTrackIdRef = useRef<string | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const recordingClipIdRef = useRef<string | null>(null);
 
   const [state, setState] = useState<AudioEngineState>({
     isPlaying: false,
@@ -146,6 +147,18 @@ export const useAudioEngine = (
       const currentTime = Math.max(0, audioContextRef.current.currentTime - startTimeRef.current);
       setState((s) => ({ ...s, currentTime }));
 
+      if (recordingClipIdRef.current) {
+        const recStartTime = recordingStartTimeRef.current;
+        const liveDuration = Math.max(0.05, currentTime - recStartTime);
+        setClips((prev) =>
+          prev.map((c) =>
+            c.id === recordingClipIdRef.current
+              ? { ...c, duration: liveDuration }
+              : c
+          )
+        );
+      }
+
       const levels: Record<string, number> = {};
       trackGainNodesRef.current.forEach((nodes, id) => {
         const arr = new Uint8Array(nodes.analyser.frequencyBinCount);
@@ -228,6 +241,7 @@ export const useAudioEngine = (
       };
 
       recorder.onstop = async () => {
+        const liveClipId = recordingClipIdRef.current;
         const ctx = initAudioContext();
         const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType });
         const blobUrl = URL.createObjectURL(blob);
@@ -235,22 +249,42 @@ export const useAudioEngine = (
         const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
         const waveformData = computeWaveformData(audioBuffer);
 
-        const newClip = createAudioClip(
-          recordingTrackIdRef.current!,
-          recordingStartTimeRef.current,
-          audioBuffer,
-          blobUrl,
-          waveformData
-        );
-        setClips((prev) => [...prev, newClip]);
+        setClips((prev) => {
+          const rest = liveClipId ? prev.filter((c) => c.id !== liveClipId) : prev;
+          const newClip = createAudioClip(
+            recordingTrackIdRef.current!,
+            recordingStartTimeRef.current,
+            audioBuffer,
+            blobUrl,
+            waveformData
+          );
+          return [...rest, newClip];
+        });
 
         recordingStreamRef.current?.getTracks().forEach((t) => t.stop());
         recordingStreamRef.current = null;
         mediaRecorderRef.current = null;
         recordingTrackIdRef.current = null;
+        recordingClipIdRef.current = null;
       };
 
       recordingStartTimeRef.current = state.currentTime;
+      const tempClipId = generateId() + '-rec';
+      recordingClipIdRef.current = tempClipId;
+      const track = tracks.find((t) => t.id === trackId);
+      setClips((prev) => [
+        ...prev,
+        {
+          id: tempClipId,
+          name: '● REC',
+          trackId,
+          startTime: recordingStartTimeRef.current,
+          duration: 0.05,
+          audioBuffer: null,
+          isRecording: true,
+          color: track?.color || '#ef4444',
+        } as AudioClip,
+      ]);
       recorder.start(100);
       setState((s) => ({ ...s, isRecording: true }));
 
@@ -261,7 +295,7 @@ export const useAudioEngine = (
       console.error('Recording failed:', e);
       alert('Tidak bisa mengakses mikrofon. Pastikan izin mikrofon diizinkan.');
     }
-  }, [initAudioContext, setClips, state.currentTime, state.isPlaying, startPlayback]);
+  }, [initAudioContext, setClips, state.currentTime, state.isPlaying, startPlayback, tracks]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
