@@ -2,6 +2,11 @@ import React from 'react';
 import { formatTime, formatBars } from '../utils';
 import { AudioEngineState } from '../types';
 
+interface DeviceItem {
+  deviceId: string;
+  label: string;
+}
+
 interface Props {
   state: AudioEngineState;
   isRecording: boolean;
@@ -24,6 +29,14 @@ interface Props {
   onZoomVOut: () => void;
   onZoomVReset: () => void;
   onZoomVSet: (v: number) => void;
+  inputDevices: DeviceItem[];
+  selectedMicId: string;
+  onMicChange: (id: string) => void;
+  outputDevices: DeviceItem[];
+  selectedOutputId: string;
+  onOutputChange: (id: string) => void;
+  onRefreshDevices: () => void;
+  outputSupported: boolean;
 }
 
 const BtnIcon: React.FC<{
@@ -42,6 +55,58 @@ const BtnIcon: React.FC<{
     {children}
   </button>
 );
+
+const DeviceSelect: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  devices: DeviceItem[];
+  onChange: (id: string) => void;
+  title?: string;
+  disabled?: boolean;
+  width?: string;
+}> = ({ label, icon, value, devices, onChange, title, disabled, width = 'w-[150px]' }) => {
+  const hasDefault = value === 'default' || devices.some((d) => d.deviceId === 'default');
+  const options: DeviceItem[] = [];
+  if (hasDefault && !devices.some((d) => d.deviceId === 'default')) {
+    options.push({ deviceId: 'default', label: 'Default System Device' });
+  }
+  devices.forEach((d) => {
+    if (d.deviceId === 'default') {
+      if (!options.some((o) => o.deviceId === 'default')) options.push({ deviceId: 'default', label: d.label || 'Default System Device' });
+    } else {
+      options.push(d);
+    }
+  });
+  if (options.length === 0) options.push({ deviceId: 'default', label: 'Default System Device' });
+
+  const current = options.find((o) => o.deviceId === value) || options[0];
+
+  return (
+    <div className="flex items-center gap-1 shrink-0" title={title}>
+      <div className="text-gray-400 shrink-0" aria-hidden>{icon}</div>
+      <div className="relative">
+        <label className="absolute left-2 top-[3px] text-[9px] leading-none text-studio-accent font-bold tracking-wide uppercase pointer-events-none">
+          {label}
+        </label>
+        <select
+          disabled={disabled}
+          value={current.deviceId}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${width} bg-studio-bg border border-studio-border rounded pl-2 pr-6 pt-2.5 pb-1 text-[11px] text-gray-200 focus:outline-none focus:border-studio-accent truncate appearance-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed`}
+          style={{ minHeight: 30 }}
+        >
+          {options.map((d) => (
+            <option key={d.deviceId} value={d.deviceId} className="text-xs truncate">
+              {d.label}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-[10px] leading-none">▾</div>
+      </div>
+    </div>
+  );
+};
 
 export const TransportBar: React.FC<Props> = ({
   state,
@@ -65,6 +130,14 @@ export const TransportBar: React.FC<Props> = ({
   onZoomVOut,
   onZoomVReset,
   onZoomVSet,
+  inputDevices,
+  selectedMicId,
+  onMicChange,
+  outputDevices,
+  selectedOutputId,
+  onOutputChange,
+  onRefreshDevices,
+  outputSupported,
 }) => {
   return (
     <div className="min-h-[56px] bg-studio-panel border-b border-studio-border flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 shrink-0">
@@ -122,6 +195,51 @@ export const TransportBar: React.FC<Props> = ({
         <div className="text-gray-500 text-sm whitespace-nowrap">
           {formatBars(state.currentTime, state.bpm)}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 pr-3 border-r border-studio-border">
+        <DeviceSelect
+          label="MIC"
+          icon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="2" width="6" height="12" rx="3" />
+              <path d="M5 10a7 7 0 0 0 14 0" />
+              <line x1="12" y1="17" x2="12" y2="22" />
+              <line x1="8" y1="22" x2="16" y2="22" />
+            </svg>
+          }
+          value={selectedMicId}
+          devices={inputDevices}
+          onChange={onMicChange}
+          title="Microphone / Input Device (digunakan saat merekam)"
+        />
+        <DeviceSelect
+          label="OUT"
+          icon={
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          }
+          value={selectedOutputId}
+          devices={outputDevices}
+          onChange={onOutputChange}
+          title={outputSupported
+            ? 'Speaker / Output Device (tempat audio diputar)'
+            : 'Output per-device tidak didukung browser ini (pakai Chrome/Edge). Audio ke sistem default.'}
+          disabled={!outputSupported}
+        />
+        <BtnIcon
+          onClick={onRefreshDevices}
+          title="Refresh daftar perangkat audio"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="23,4 23,10 17,10" />
+            <polyline points="1,20 1,14 7,14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </BtnIcon>
       </div>
 
       <div className="flex items-center gap-2 pr-3 border-r border-studio-border">
