@@ -427,6 +427,59 @@ export const useAudioEngine = (
     URL.revokeObjectURL(url);
   }, [initAudioContext, tracks, clips, masterVolume]);
 
+  const exportTrack = useCallback(async (trackId: string): Promise<void> => {
+    const track = tracks.find((t) => t.id === trackId);
+    if (!track) {
+      alert('Track tidak ditemukan');
+      return;
+    }
+    const trackClips = clips.filter((c) => c.trackId === trackId && c.audioBuffer);
+    if (trackClips.length === 0) {
+      alert('Track "' + track.name + '" tidak memiliki clip audio untuk diekspor.');
+      return;
+    }
+
+    const maxEnd = trackClips.reduce((m, c) => Math.max(m, c.startTime + c.duration), 0);
+    if (maxEnd === 0) {
+      alert('Track ini tidak ada audio yang bisa diekspor.');
+      return;
+    }
+
+    const ctx = initAudioContext();
+    const sampleRate = ctx.sampleRate;
+    const totalDuration = maxEnd + 1;
+    const length = Math.ceil(totalDuration * sampleRate);
+    const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+    const offlineMaster = offlineCtx.createGain();
+    offlineMaster.gain.value = track.muted ? 0 : track.volume;
+    offlineMaster.connect(offlineCtx.destination);
+
+    const gain = offlineCtx.createGain();
+    const pan = offlineCtx.createStereoPanner();
+    gain.gain.value = 1;
+    pan.pan.value = track.pan;
+    gain.connect(pan);
+    pan.connect(offlineMaster);
+
+    trackClips.forEach((clip) => {
+      const src = offlineCtx.createBufferSource();
+      src.buffer = clip.audioBuffer!;
+      src.connect(gain);
+      src.start(clip.startTime);
+    });
+
+    const renderedBuffer = await offlineCtx.startRendering();
+    const wav = audioBufferToWav(renderedBuffer);
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = track.name.replace(/[^a-z0-9_\- ]/gi, '_').trim() || `track-${trackId.slice(0, 6)}`;
+    a.download = `${safeName}-${Date.now()}.wav`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [initAudioContext, tracks, clips]);
+
   const togglePlay = useCallback(() => {
     if (state.isPlaying) {
       pausePlayback();
@@ -451,6 +504,7 @@ export const useAudioEngine = (
     stopRecording,
     importAudioFile,
     exportMixdown,
+    exportTrack,
     togglePlay,
   };
 };

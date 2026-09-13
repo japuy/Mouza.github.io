@@ -262,6 +262,7 @@ function App() {
           isRecording={engine.state.isRecording}
           recordingTrackId={recordingTrackId}
           trackHeight={TRACK_HEIGHT}
+          onExportTrack={engine.exportTrack}
         />
 
         <DropWrapper onDropToTrack={handleTimelineDrop}>
@@ -373,7 +374,7 @@ const HelpModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="flex items-center gap-3">
             <div className="text-3xl">🎵</div>
             <div>
-              <h2 className="text-xl font-bold text-white">Selamat datang di Suno Studio</h2>
+              <h2 className="text-xl font-bold text-white">Selamat datang di Mouza Studio</h2>
               <p className="text-sm text-gray-400">Studio musik digital di browser Anda</p>
             </div>
           </div>
