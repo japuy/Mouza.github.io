@@ -14,6 +14,16 @@ interface Props {
   masterVolume: number;
   onMasterVolumeChange: (v: number) => void;
   masterMeter: number;
+  pixelsPerSecond: number;
+  onZoomHIn: () => void;
+  onZoomHOut: () => void;
+  onZoomHReset: () => void;
+  onZoomHSet: (v: number) => void;
+  trackHeight: number;
+  onZoomVIn: () => void;
+  onZoomVOut: () => void;
+  onZoomVReset: () => void;
+  onZoomVSet: (v: number) => void;
 }
 
 export const TransportBar: React.FC<Props> = ({
@@ -28,11 +38,21 @@ export const TransportBar: React.FC<Props> = ({
   masterVolume,
   onMasterVolumeChange,
   masterMeter,
+  pixelsPerSecond,
+  onZoomHIn,
+  onZoomHOut,
+  onZoomHReset,
+  onZoomHSet,
+  trackHeight,
+  onZoomVIn,
+  onZoomVOut,
+  onZoomVReset,
+  onZoomVSet,
 }) => {
   return (
     <div className="h-16 bg-studio-panel border-b border-studio-border flex items-center px-4 gap-4 shrink-0">
       <div className="flex items-center gap-2 pr-4 border-r border-studio-border">
-        <div className="text-studio-accent font-bold text-xl mr-2">🎵 Suno Studio</div>
+        <div className="text-studio-accent font-bold text-xl mr-2">🎵 Mouza Studio</div>
       </div>
 
       <div className="flex items-center gap-2 pr-4 border-r border-studio-border">
@@ -115,6 +135,86 @@ export const TransportBar: React.FC<Props> = ({
             className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all"
             style={{ width: `${Math.min(100, masterMeter * 300)}%` }}
           />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 pr-4 border-r border-studio-border">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide w-5">↔</span>
+          <button
+            onClick={onZoomHOut}
+            onDoubleClick={onZoomHReset}
+            className="w-7 h-7 rounded bg-studio-bg hover:bg-studio-border border border-studio-border flex items-center justify-center text-gray-300 transition-all"
+            title={`Zoom Out Timeline (Ctrl + Scroll Up)\nDouble-click: Reset`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <input
+            type="range"
+            min="15"
+            max="300"
+            step="1"
+            value={pixelsPerSecond}
+            onChange={(e) => onZoomHSet(Number(e.target.value))}
+            className="w-24"
+            title={`${Math.round(pixelsPerSecond)} px/detik`}
+          />
+          <button
+            onClick={onZoomHIn}
+            onDoubleClick={onZoomHReset}
+            className="w-7 h-7 rounded bg-studio-bg hover:bg-studio-border border border-studio-border flex items-center justify-center text-gray-300 transition-all"
+            title={`Zoom In Timeline (Ctrl + Scroll Down)\nDouble-click: Reset`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <span className="text-[10px] text-gray-500 font-mono w-10 text-right" title="Pixels per second">
+            {Math.round(pixelsPerSecond)}
+          </span>
+        </div>
+
+        <div className="w-px h-6 bg-studio-border mx-1" />
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wide w-5">↕</span>
+          <button
+            onClick={onZoomVOut}
+            onDoubleClick={onZoomVReset}
+            className="w-7 h-7 rounded bg-studio-bg hover:bg-studio-border border border-studio-border flex items-center justify-center text-gray-300 transition-all"
+            title={`Perkecil Tinggi Track (Shift + Scroll Up)\nDouble-click: Reset`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <input
+            type="range"
+            min="50"
+            max="200"
+            step="1"
+            value={trackHeight}
+            onChange={(e) => onZoomVSet(Number(e.target.value))}
+            className="w-20"
+            title={`Tinggi track: ${trackHeight}px`}
+          />
+          <button
+            onClick={onZoomVIn}
+            onDoubleClick={onZoomVReset}
+            className="w-7 h-7 rounded bg-studio-bg hover:bg-studio-border border border-studio-border flex items-center justify-center text-gray-300 transition-all"
+            title={`Perbesar Tinggi Track (Shift + Scroll Down)\nDouble-click: Reset`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <span className="text-[10px] text-gray-500 font-mono w-8 text-right" title="Tinggi track (px)">
+            {trackHeight}
+          </span>
         </div>
       </div>
 

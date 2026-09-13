@@ -14,7 +14,14 @@ interface Props {
   onDeleteClip: (id: string) => void;
   onImportToTrack: (trackId: string, time: number) => void;
   isPlaying: boolean;
+  onZoomHSet?: (v: number) => void;
+  onZoomVSet?: (v: number) => void;
 }
+
+const MIN_PPS = 15;
+const MAX_PPS = 300;
+const MIN_TH = 50;
+const MAX_TH = 200;
 
 export const Timeline: React.FC<Props> = ({
   tracks,
@@ -28,12 +35,54 @@ export const Timeline: React.FC<Props> = ({
   onDeleteClip,
   onImportToTrack,
   isPlaying,
+  onZoomHSet,
+  onZoomVSet,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<{ id: string; startX: number; origStart: number } | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    const isZoomH = e.ctrlKey || e.metaKey;
+    const isZoomV = e.shiftKey && !isZoomH;
+
+    if (!isZoomH && !isZoomV) return;
+    e.preventDefault();
+
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+
+    if (isZoomH && onZoomHSet) {
+      const rect = scroll.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left + scroll.scrollLeft;
+      const timeAtMouse = mouseX / pixelsPerSecond;
+      const offsetInViewport = e.clientX - rect.left;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const newPps = Math.max(MIN_PPS, Math.min(MAX_PPS, pixelsPerSecond * factor));
+      if (newPps === pixelsPerSecond) return;
+      onZoomHSet(newPps);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollLeft = Math.max(0, timeAtMouse * newPps - offsetInViewport);
+        }
+      });
+    } else if (isZoomV && onZoomVSet) {
+      const rect = scroll.getBoundingClientRect();
+      const mouseY = e.clientY - rect.top + scroll.scrollTop;
+      const trackAtMouse = mouseY / trackHeight;
+      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+      const newTh = Math.max(MIN_TH, Math.min(MAX_TH, Math.round(trackHeight * factor)));
+      if (newTh === trackHeight) return;
+      onZoomVSet(newTh);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = Math.max(0, trackAtMouse * newTh - (e.clientY - rect.top));
+        }
+      });
+    }
+  };
 
   const totalWidth = Math.max(2000, currentTime * pixelsPerSecond + 1000);
   const totalHeight = tracks.length * trackHeight;
@@ -131,6 +180,7 @@ export const Timeline: React.FC<Props> = ({
       <div
         ref={rulerRef}
         onClick={handleRulerClick}
+        onWheel={handleWheel}
         className="h-12 bg-studio-panel border-b border-studio-border relative overflow-hidden cursor-pointer shrink-0"
         style={{ overflowX: 'hidden' }}
       >
@@ -175,6 +225,7 @@ export const Timeline: React.FC<Props> = ({
       <div
         ref={scrollRef}
         onScroll={syncScroll}
+        onWheel={handleWheel}
         className="flex-1 overflow-auto relative"
       >
         <div
