@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { TransportBar } from './components/TransportBar';
 import { TrackList } from './components/TrackList';
 import { Timeline } from './components/Timeline';
@@ -12,6 +12,11 @@ const MIN_PIXELS_PER_SECOND = 15;
 const MAX_PIXELS_PER_SECOND = 300;
 const MIN_TRACK_HEIGHT = 50;
 const MAX_TRACK_HEIGHT = 200;
+
+interface DeviceItem {
+  deviceId: string;
+  label: string;
+}
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([
@@ -28,12 +33,56 @@ function App() {
   const [showHelp, setShowHelp] = useState(true);
   const [pixelsPerSecond, setPixelsPerSecond] = useState<number>(DEFAULT_PIXELS_PER_SECOND);
   const [trackHeight, setTrackHeight] = useState<number>(DEFAULT_TRACK_HEIGHT);
+  const [inputDevices, setInputDevices] = useState<DeviceItem[]>([]);
+  const [outputDevices, setOutputDevices] = useState<DeviceItem[]>([]);
+  const [selectedMicId, setSelectedMicId] = useState<string>('default');
+  const [selectedOutputId, setSelectedOutputId] = useState<string>('default');
+  const [outputSupported, setOutputSupported] = useState<boolean>(true);
 
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const libraryFileInputRef = useRef<HTMLInputElement>(null);
   const dragClipDataRef = useRef<{ file: File } | null>(null);
 
   const engine = useAudioEngine(tracks, clips, setClips, setTracks);
+
+  const refreshDevices = useCallback(async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const mic: DeviceItem[] = [];
+      const out: DeviceItem[] = [];
+      all.forEach((d) => {
+        const label = d.label || (d.deviceId === 'default' ? 'Default' : `Device ${d.deviceId.slice(0, 6)}`);
+        if (d.kind === 'audioinput') mic.push({ deviceId: d.deviceId, label });
+        else if (d.kind === 'audiooutput') out.push({ deviceId: d.deviceId, label });
+      });
+      setInputDevices((prev) => (prev.length === 0 && mic.length === 0 ? prev : mic));
+      setOutputDevices((prev) => (prev.length === 0 && out.length === 0 ? prev : out));
+    } catch (e) {
+      console.warn('enumerateDevices gagal:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshDevices();
+    if (!navigator.mediaDevices) return;
+    const handler = () => refreshDevices();
+    navigator.mediaDevices.addEventListener?.('devicechange', handler);
+    return () => {
+      navigator.mediaDevices.removeEventListener?.('devicechange', handler);
+    };
+  }, [refreshDevices]);
+
+  useEffect(() => {
+    try {
+      const ac = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const anyAc = ac as unknown as { setSinkId?: unknown };
+      setOutputSupported(typeof anyAc.setSinkId === 'function');
+      try { ac.close(); } catch {}
+    } catch {
+      setOutputSupported(false);
+    }
+  }, []);
 
   const handleAddTrack = useCallback(() => {
     setTracks((prev) => [...prev, createDefaultTrack(prev.length)]);
@@ -84,9 +133,38 @@ function App() {
       }
       engine.initAudioContext();
       setRecordingTrackId(armedTrack.id);
-      engine.startRecording(armedTrack.id);
+      const micId = selectedMicId === 'default' ? null : selectedMicId;
+      engine.startRecording(armedTrack.id, micId);
+      setTimeout(refreshDevices, 800);
     }
-  }, [engine, tracks]);
+  }, [engine, tracks, selectedMicId, refreshDevices]);
+
+  const handleMicChange = useCallback(async (deviceId: string) => {
+    setSelectedMicId(deviceId);
+  }, []);
+
+  const handleOutputChange = useCallback(async (deviceId: string) => {
+    setSelectedOutputId(deviceId);
+    if (deviceId === 'default') {
+      const ok = await engine.setOutputDevice(null);
+      if (!ok && outputSupported) {
+        alert('Output device tidak didukung oleh browser ini (coba gunakan Chrome / Edge terbaru).');
+      }
+    } else {
+      const ok = await engine.setOutputDevice(deviceId);
+      if (!ok) {
+        alert('Browser Anda tidak mendukung perpindahan output audio per-aplikasi.\nOutput akan menggunakan sistem default.\n(Gunakan Chrome / Edge versi terbaru untuk fitur ini.)');
+      }
+    }
+  }, [engine, outputSupported]);
+
+  const handleRefreshDevices = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+    } catch {}
+    await refreshDevices();
+  }, [refreshDevices]);
 
   const handlePlay = useCallback(() => {
     engine.initAudioContext();
@@ -243,6 +321,14 @@ function App() {
         onZoomVOut={handleZoomVOut}
         onZoomVReset={handleZoomVReset}
         onZoomVSet={handleZoomVSet}
+        inputDevices={inputDevices}
+        selectedMicId={selectedMicId}
+        onMicChange={handleMicChange}
+        outputDevices={outputDevices}
+        selectedOutputId={selectedOutputId}
+        onOutputChange={handleOutputChange}
+        onRefreshDevices={handleRefreshDevices}
+        outputSupported={outputSupported}
       />
 
       <div className="flex-1 flex overflow-hidden">

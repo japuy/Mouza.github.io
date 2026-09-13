@@ -252,9 +252,12 @@ export const useAudioEngine = (
     }
   }, [state.isPlaying, stopAllSources, startPlayback]);
 
-  const startRecording = useCallback(async (trackId: string) => {
+  const startRecording = useCallback(async (trackId: string, micDeviceId?: string | null) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioConstraint: MediaTrackConstraints = micDeviceId
+        ? { deviceId: { exact: micDeviceId }, echoCancellation: true, noiseSuppression: true }
+        : { echoCancellation: true, noiseSuppression: true };
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
       recordingStreamRef.current = stream;
       liveWaveformRef.current = [];
 
@@ -558,6 +561,30 @@ export const useAudioEngine = (
     }
   }, [state.isPlaying, pausePlayback, startPlayback]);
 
+  const setOutputDevice = useCallback(async (deviceId: string | null): Promise<boolean> => {
+    try {
+      const ctx = initAudioContext();
+      const anyCtx = ctx as unknown as {
+        setSinkId?: (id: string) => Promise<void>;
+        sinkId?: string;
+      };
+      if (!deviceId || deviceId === 'default') {
+        if (anyCtx.setSinkId) {
+          await anyCtx.setSinkId('');
+        }
+        return true;
+      }
+      if (typeof anyCtx.setSinkId === 'function') {
+        await anyCtx.setSinkId(deviceId);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.warn('Gagal mengubah output device:', e);
+      return false;
+    }
+  }, [initAudioContext]);
+
   return {
     state,
     setState,
@@ -576,6 +603,7 @@ export const useAudioEngine = (
     exportMixdown,
     exportTrack,
     togglePlay,
+    setOutputDevice,
   };
 };
 
