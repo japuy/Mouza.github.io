@@ -6,8 +6,12 @@ import { useAudioEngine } from './useAudioEngine';
 import { createDefaultTrack, generateId } from './utils';
 import { Track, AudioClip } from './types';
 
-const TRACK_HEIGHT = 90;
-const PIXELS_PER_SECOND = 60;
+const DEFAULT_TRACK_HEIGHT = 90;
+const DEFAULT_PIXELS_PER_SECOND = 60;
+const MIN_PIXELS_PER_SECOND = 15;
+const MAX_PIXELS_PER_SECOND = 300;
+const MIN_TRACK_HEIGHT = 50;
+const MAX_TRACK_HEIGHT = 200;
 
 function App() {
   const [tracks, setTracks] = useState<Track[]>([
@@ -22,6 +26,8 @@ function App() {
   const [library, setLibrary] = useState<{ id: string; name: string; file?: File }[]>([]);
   const [draggedLibraryId, setDraggedLibraryId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(true);
+  const [pixelsPerSecond, setPixelsPerSecond] = useState<number>(DEFAULT_PIXELS_PER_SECOND);
+  const [trackHeight, setTrackHeight] = useState<number>(DEFAULT_TRACK_HEIGHT);
 
   const importFileInputRef = useRef<HTMLInputElement>(null);
   const libraryFileInputRef = useRef<HTMLInputElement>(null);
@@ -181,6 +187,38 @@ function App() {
     engine.exportMixdown(maxClipEnd + 2);
   }, [clips, engine]);
 
+  const handleZoomHIn = useCallback(() => {
+    setPixelsPerSecond((prev) => Math.min(MAX_PIXELS_PER_SECOND, prev * 1.25));
+  }, []);
+
+  const handleZoomHOut = useCallback(() => {
+    setPixelsPerSecond((prev) => Math.max(MIN_PIXELS_PER_SECOND, prev / 1.25));
+  }, []);
+
+  const handleZoomHReset = useCallback(() => {
+    setPixelsPerSecond(DEFAULT_PIXELS_PER_SECOND);
+  }, []);
+
+  const handleZoomHSet = useCallback((v: number) => {
+    setPixelsPerSecond(Math.max(MIN_PIXELS_PER_SECOND, Math.min(MAX_PIXELS_PER_SECOND, v)));
+  }, []);
+
+  const handleZoomVIn = useCallback(() => {
+    setTrackHeight((prev) => Math.min(MAX_TRACK_HEIGHT, Math.round(prev * 1.2)));
+  }, []);
+
+  const handleZoomVOut = useCallback(() => {
+    setTrackHeight((prev) => Math.max(MIN_TRACK_HEIGHT, Math.round(prev / 1.2)));
+  }, []);
+
+  const handleZoomVReset = useCallback(() => {
+    setTrackHeight(DEFAULT_TRACK_HEIGHT);
+  }, []);
+
+  const handleZoomVSet = useCallback((v: number) => {
+    setTrackHeight(Math.max(MIN_TRACK_HEIGHT, Math.min(MAX_TRACK_HEIGHT, Math.round(v))));
+  }, []);
+
   return (
     <div className="h-screen w-screen flex flex-col bg-studio-bg text-white">
       <TransportBar
@@ -195,6 +233,16 @@ function App() {
         masterVolume={engine.masterVolume}
         onMasterVolumeChange={engine.setMasterVolume}
         masterMeter={engine.masterMeter}
+        pixelsPerSecond={pixelsPerSecond}
+        onZoomHIn={handleZoomHIn}
+        onZoomHOut={handleZoomHOut}
+        onZoomHReset={handleZoomHReset}
+        onZoomHSet={handleZoomHSet}
+        trackHeight={trackHeight}
+        onZoomVIn={handleZoomVIn}
+        onZoomVOut={handleZoomVOut}
+        onZoomVReset={handleZoomVReset}
+        onZoomVSet={handleZoomVSet}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -261,23 +309,25 @@ function App() {
           onArmTrack={handleArmTrack}
           isRecording={engine.state.isRecording}
           recordingTrackId={recordingTrackId}
-          trackHeight={TRACK_HEIGHT}
+          trackHeight={trackHeight}
           onExportTrack={engine.exportTrack}
         />
 
-        <DropWrapper onDropToTrack={handleTimelineDrop}>
+        <DropWrapper onDropToTrack={handleTimelineDrop} pixelsPerSecond={pixelsPerSecond} trackHeight={trackHeight} tracks={tracks}>
           <Timeline
             tracks={tracks}
             clips={clips}
             currentTime={engine.state.currentTime}
             bpm={engine.state.bpm}
-            pixelsPerSecond={PIXELS_PER_SECOND}
-            trackHeight={TRACK_HEIGHT}
+            pixelsPerSecond={pixelsPerSecond}
+            trackHeight={trackHeight}
             onSeek={engine.seekTo}
             onUpdateClip={handleUpdateClip}
             onDeleteClip={handleDeleteClip}
             onImportToTrack={handleImportToTrack}
             isPlaying={engine.state.isPlaying}
+            onZoomHSet={handleZoomHSet}
+            onZoomVSet={handleZoomVSet}
           />
         </DropWrapper>
       </div>
@@ -340,11 +390,15 @@ const KeyboardShortcuts: React.FC<{
 interface DropWrapperProps {
   children: React.ReactNode;
   onDropToTrack: (trackId: string, time: number) => void;
+  tracks: Track[];
+  pixelsPerSecond: number;
+  trackHeight: number;
 }
 
-const DropWrapper: React.FC<DropWrapperProps> = ({ children, onDropToTrack }) => {
+const DropWrapper: React.FC<DropWrapperProps> = ({ children, onDropToTrack, tracks, pixelsPerSecond, trackHeight }) => {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const timelineStateRef = useRef({ tracks: [] as Track[], pixelsPerSecond: PIXELS_PER_SECOND, trackHeight: TRACK_HEIGHT });
+  const timelineStateRef = useRef({ tracks: [] as Track[], pixelsPerSecond: DEFAULT_PIXELS_PER_SECOND, trackHeight: DEFAULT_TRACK_HEIGHT });
+  timelineStateRef.current = { tracks, pixelsPerSecond, trackHeight };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
